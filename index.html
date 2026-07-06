@@ -414,6 +414,12 @@
 </div>
 <span class="text-[10px] text-center font-medium leading-tight text-on-surface-variant">E-Wallet</span>
 </button>
+<button data-nav="qris" class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+<div class="w-14 h-14 bg-white rounded-xl shadow-sm border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-primary text-[28px]" data-icon="qr_code_2">qr_code_2</span>
+</div>
+<span class="text-[10px] text-center font-medium leading-tight text-on-surface-variant">Terima QRIS</span>
+</button>
 <button data-nav="layanan" data-jenis="internet" class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
 <div class="w-14 h-14 bg-white rounded-xl shadow-sm border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-high transition-colors">
 <span class="material-symbols-outlined text-primary text-[28px]" data-icon="wifi">wifi</span>
@@ -636,6 +642,62 @@
 <p id="payError" class="text-error text-sm font-medium hidden"></p>
 <button id="payConfirmBtn" class="w-full h-14 bg-primary text-on-primary rounded-xl font-bold active:scale-[0.98] transition-transform">Bayar Sekarang</button>
 </div>
+</main>
+</div>
+
+<!-- ======================= PAGE: TERIMA QRIS ======================= -->
+<div id="page-qris" class="page hidden bg-background min-h-screen">
+<header class="fixed top-0 w-full z-50 bg-surface shadow-sm flex items-center gap-3 px-container-mobile h-16">
+<button data-nav="home" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors active:scale-95">
+<span class="material-symbols-outlined text-on-surface" data-icon="arrow_back">arrow_back</span>
+</button>
+<span class="font-headline-md text-headline-md font-bold text-on-surface">Terima Pembayaran QRIS</span>
+</header>
+<main class="pt-20 pb-28 px-container-mobile max-w-md mx-auto space-y-6">
+
+<!-- Form nominal (tampil sebelum QR dibuat) -->
+<section id="qrisFormSection" class="space-y-4">
+<div>
+<label class="font-label-md text-on-surface-variant mb-2 block">Nominal Diterima</label>
+<div class="bg-white rounded-xl border border-outline-variant/30 shadow-sm flex items-center px-4 h-14">
+<span class="text-on-surface-variant font-bold mr-2">Rp</span>
+<input id="qrisAmount" type="text" inputmode="numeric" placeholder="0" class="flex-1 border-0 focus:ring-0 outline-none font-bold text-lg p-0"/>
+</div>
+</div>
+<div>
+<label class="font-label-md text-on-surface-variant mb-2 block">Catatan (opsional)</label>
+<input id="qrisNote" type="text" placeholder="contoh: Pembayaran meja 4" class="w-full h-14 bg-white rounded-xl border border-outline-variant/30 shadow-sm px-4 outline-none focus:border-primary"/>
+</div>
+<p id="qrisError" class="text-error text-sm font-medium hidden"></p>
+<button id="qrisGenerateBtn" class="w-full h-14 bg-primary text-on-primary rounded-xl font-bold shadow-[0px_8px_24px_rgba(0,77,203,0.3)] active:scale-[0.98] transition-transform disabled:opacity-60">Buat Kode QRIS</button>
+</section>
+
+<!-- Hasil QR (tampil setelah berhasil generate) -->
+<section id="qrisResultSection" class="hidden space-y-4">
+<div class="bg-white rounded-xl border border-outline-variant/30 shadow-sm p-6 flex flex-col items-center">
+<p class="font-label-md text-on-surface-variant mb-1">Nominal</p>
+<p id="qrisResultAmount" class="font-display-currency text-display-currency text-on-surface mb-4">Rp0</p>
+<img id="qrisResultImg" class="w-56 h-56 rounded-lg border border-outline-variant/30" alt="Kode QRIS"/>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-3">Minta pelanggan pindai kode ini</p>
+</div>
+<div class="bg-white rounded-xl border border-outline-variant/30 shadow-sm p-4 space-y-3">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-on-surface-variant">Order ID</span>
+<span id="qrisResultOrder" class="font-label-md font-bold text-on-surface">—</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-on-surface-variant">Berlaku Hingga</span>
+<span id="qrisResultCountdown" class="font-label-md font-bold text-on-surface">—</span>
+</div>
+<button id="qrisCopyLinkBtn" class="w-full h-11 border border-outline-variant rounded-xl font-label-md font-bold text-primary active:scale-[0.98] transition-transform">Salin Link Bayar</button>
+</div>
+<div id="qrisStatusBanner" class="flex items-center gap-2 bg-white rounded-xl border border-outline-variant/30 shadow-sm p-4">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary shrink-0 animate-pulse-soft"></span>
+<span id="qrisStatusText" class="font-label-md text-on-surface-variant flex-1">Memantau status pembayaran otomatis…</span>
+</div>
+<button id="qrisNewBtn" class="w-full h-14 border border-outline-variant/50 rounded-xl font-bold text-on-surface-variant active:scale-[0.98] transition-transform">Buat QRIS Baru</button>
+</section>
+
 </main>
 </div>
 
@@ -1468,7 +1530,9 @@ Rincian Pembayaran
 (function () {
   // ---------- Backend config ----------
   // TODO: ganti dengan URL Cloudflare Worker kamu setelah di-deploy
-  var WORKER_URL = 'https://your-worker.example.workers.dev';
+  var WORKER_URL = 'https://finpay-backend.vinzprostore.workers.dev';
+  // Worker terpisah yang menangani generate & cek status QRIS (proxy ke temanqris.com)
+  var QRIS_WORKER_URL = 'https://temanqris.vinzprostore.workers.dev';
 
   function getSession() {
     try { return JSON.parse(localStorage.getItem('finpay_session') || 'null'); } catch (e) { return null; }
@@ -1582,7 +1646,7 @@ Rincian Pembayaran
   //   - The real browser history is kept at a single guarded entry, so
   //     the hardware/gesture back button always asks to confirm exit once
   //     you're back at the root, instead of wandering into old history.
-  var pages = ['welcome', 'otp', 'enter-pin', 'create-pin', 'confirm-pin', 'set-username', 'home', 'topup', 'transfer', 'pay', 'history', 'promo', 'profile', 'layanan', 'gamevoucher', 'ewallet', 'mlbb', 'pulsa', 'pulsa-konfirmasi', 'metode-pembayaran'];
+  var pages = ['welcome', 'otp', 'enter-pin', 'create-pin', 'confirm-pin', 'set-username', 'home', 'topup', 'transfer', 'pay', 'history', 'promo', 'profile', 'layanan', 'gamevoucher', 'ewallet', 'mlbb', 'pulsa', 'pulsa-konfirmasi', 'metode-pembayaran', 'qris'];
   var pagesWithNav = { home: true, history: true, promo: true, profile: true };
   var navStack = [getSession() ? 'home' : 'welcome'];
 
@@ -1647,6 +1711,7 @@ Rincian Pembayaran
     if (page === 'pulsa-konfirmasi') refreshPulsaKonfirmasi();
     if (page === 'profile') applySessionToUI();
     if (page === 'metode-pembayaran') refreshMetodePembayaran();
+    if (page === 'qris') { refreshQris(); } else { stopQrisPolling(); }
   }
 
   document.querySelectorAll('[data-nav]').forEach(function (el) {
@@ -2008,6 +2073,144 @@ Rincian Pembayaran
   });
 
   // reset pay page each time it's entered
+  // ---------- TERIMA QRIS ----------
+  var qrisPollTimer = null;
+  var qrisCountdownTimer = null;
+  var qrisCurrentOrderId = null;
+  var qrisPaymentLink = '';
+
+  function qrisToNumber(str) { return Number(String(str).replace(/[^0-9]/g, '')) || 0; }
+
+  function refreshQris() {
+    stopQrisPolling();
+    if (qrisCountdownTimer) clearInterval(qrisCountdownTimer);
+    document.getElementById('qrisAmount').value = '';
+    document.getElementById('qrisNote').value = '';
+    document.getElementById('qrisError').classList.add('hidden');
+    document.getElementById('qrisFormSection').classList.remove('hidden');
+    document.getElementById('qrisResultSection').classList.add('hidden');
+    attachRipple(document.getElementById('page-qris'));
+  }
+
+  function stopQrisPolling() {
+    if (qrisPollTimer) { clearInterval(qrisPollTimer); qrisPollTimer = null; }
+  }
+
+  document.getElementById('qrisAmount').addEventListener('input', function () {
+    var val = qrisToNumber(this.value);
+    this.value = val ? val.toLocaleString('id-ID') : '';
+  });
+
+  document.getElementById('qrisGenerateBtn').addEventListener('click', function () {
+    var amount = qrisToNumber(document.getElementById('qrisAmount').value);
+    var note = document.getElementById('qrisNote').value.trim();
+    var errorEl = document.getElementById('qrisError');
+    var btn = this;
+    errorEl.classList.add('hidden');
+
+    if (!amount || amount < 100) { errorEl.textContent = 'Masukkan nominal yang valid.'; errorEl.classList.remove('hidden'); return; }
+
+    btn.disabled = true;
+    var originalLabel = btn.textContent;
+    btn.textContent = 'Memproses…';
+
+    var payload = { amount: amount };
+    if (note) payload.order_id = ('FP-' + Date.now()).slice(0, 30);
+
+    fetch(QRIS_WORKER_URL + '/api/qris/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success === false) { throw { userMessage: data.message || 'Gagal membuat QRIS.' }; }
+        renderQrisResult(data);
+      })
+      .catch(function (err) {
+        errorEl.textContent = (err && err.userMessage) || 'Gagal terhubung ke server QRIS.';
+        errorEl.classList.remove('hidden');
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      });
+  });
+
+  function renderQrisResult(data) {
+    var link = data.payment_link || {};
+    qrisPaymentLink = link.url ? (link.url.indexOf('http') === 0 ? link.url : QRIS_WORKER_URL.replace('https://temanqris.vinzprostore.workers.dev', 'https://temanqris.com') + link.url) : '';
+    qrisCurrentOrderId = link.order_id || null;
+
+    document.getElementById('qrisFormSection').classList.add('hidden');
+    document.getElementById('qrisResultSection').classList.remove('hidden');
+    document.getElementById('qrisResultAmount').textContent = formatRupiah(data.amount || 0);
+    document.getElementById('qrisResultOrder').textContent = link.order_id || '—';
+    if (data.qr_image) document.getElementById('qrisResultImg').src = data.qr_image;
+
+    if (qrisCountdownTimer) clearInterval(qrisCountdownTimer);
+    if (data.expires_at) {
+      var target = new Date(data.expires_at).getTime();
+      var el = document.getElementById('qrisResultCountdown');
+      function tick() {
+        var diff = target - Date.now();
+        if (diff <= 0) { el.textContent = 'Kedaluwarsa'; clearInterval(qrisCountdownTimer); return; }
+        var s = Math.floor(diff / 1000);
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+        function pad(n) { return String(n).padStart(2, '0'); }
+        el.textContent = (h ? pad(h) + ':' : '') + pad(m) + ':' + pad(sec);
+      }
+      tick();
+      qrisCountdownTimer = setInterval(tick, 1000);
+    } else {
+      document.getElementById('qrisResultCountdown').textContent = 'Tanpa batas waktu';
+    }
+
+    if (qrisCurrentOrderId) {
+      startQrisPolling(qrisCurrentOrderId, data.amount);
+    } else {
+      document.getElementById('qrisStatusText').textContent = 'Order ID tidak tersedia, tidak bisa memantau otomatis.';
+    }
+  }
+
+  function startQrisPolling(orderId, amount) {
+    stopQrisPolling();
+    document.getElementById('qrisStatusText').textContent = 'Memantau status pembayaran otomatis…';
+    var checks = 0;
+    qrisPollTimer = setInterval(function () {
+      checks++;
+      if (checks > 60) { stopQrisPolling(); document.getElementById('qrisStatusText').textContent = 'Pemantauan otomatis berhenti.'; return; }
+      fetch(QRIS_WORKER_URL + '/api/qris/orders/' + encodeURIComponent(orderId))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.order) return;
+          if (data.order.status === 'paid') {
+            stopQrisPolling();
+            if (qrisCountdownTimer) clearInterval(qrisCountdownTimer);
+            document.getElementById('qrisStatusText').textContent = '✅ Pembayaran diterima!';
+            state.balance += amount;
+            addTransaction({ title: 'Terima QRIS', amount: amount, sign: '+', icon: 'qr_code_2' });
+            toast('Pembayaran QRIS diterima, saldo bertambah ' + formatRupiah(amount));
+          } else if (data.order.status === 'expired' || data.order.status === 'cancelled') {
+            stopQrisPolling();
+            document.getElementById('qrisStatusText').textContent = data.order.status === 'expired' ? 'QRIS sudah kedaluwarsa.' : 'Order dibatalkan.';
+          }
+        })
+        .catch(function () { /* koneksi gagal sesaat, dicoba lagi di interval berikutnya */ });
+    }, 5000);
+  }
+
+  document.getElementById('qrisCopyLinkBtn').addEventListener('click', function () {
+    if (!qrisPaymentLink) { toast('Link belum tersedia.'); return; }
+    navigator.clipboard.writeText(qrisPaymentLink).then(function () {
+      toast('Link bayar disalin.');
+    }).catch(function () {
+      toast('Gagal menyalin otomatis.');
+    });
+  });
+
+  document.getElementById('qrisNewBtn').addEventListener('click', function () { refreshQris(); });
+
   function resetPayPage() {
     document.getElementById('simulateScan').classList.remove('hidden');
     document.getElementById('payForm').classList.add('hidden');
