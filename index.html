@@ -1436,6 +1436,7 @@ Rincian Pembayaran
   // ---------- In-memory app state ----------
   var state = {
     balance: 0,
+    isAdmin: false, // true kalau akun ini admin/owner (saldo diambil dari H2H.id, bebas biaya admin)
     transactions: [] // {title, amount, sign, icon, date, status}
   };
 
@@ -1820,7 +1821,7 @@ Rincian Pembayaran
             document.getElementById('topupPaymentStatusText').textContent = 'Pembayaran berhasil!';
             fetch(WORKER_URL + '/balance/' + session.account.id)
               .then(function (r) { return r.json(); })
-              .then(function (b) { if (b.status) state.balance = Number(b.data.balance); });
+              .then(function (b) { if (b.status) { state.balance = Number(b.data.balance); state.isAdmin = b.data.source === 'h2h'; } });
             addTransaction({ title: 'Top Up via ' + topupSelectedMethod, amount: res.data.amount, sign: '+', icon: 'account_balance_wallet' });
             toast('Top up berhasil! Saldo bertambah ' + formatRupiah(res.data.amount));
             setTimeout(function () { closeTopupPaymentModal(); navigate('home'); }, 1500);
@@ -2245,6 +2246,7 @@ Rincian Pembayaran
         // amount = HARGA ASLI dari H2H.id (data-price), bukan nominal pulsa —
         // ini yang tadinya hardcode manual, sekarang diambil dari backend.
         amount: Number(card.getAttribute('data-price')),
+        dest: '0' + phoneDigits, // format lokal 08xxxx, ini yang dikirim ke H2H.id
         phoneDigits: phoneDigits,
         productIcon: 'phone_iphone',
         recipientLabel: 'Nomor Penerima',
@@ -2379,10 +2381,12 @@ Rincian Pembayaran
 
     document.getElementById('konfHargaProduk').textContent = formatRupiah(c.amount);
 
-    // Flat admin fee — total is always product price + Rp250
-    c.price = c.amount + ADMIN_FEE;
-    document.getElementById('konfBiayaAdminLabel').textContent = 'Biaya Admin';
-    document.getElementById('konfBiayaAdmin').textContent = formatRupiah(ADMIN_FEE);
+    // Flat admin fee Rp250 — HANYA untuk user biasa. Akun admin/owner bebas biaya admin
+    // (sama persis seperti yang backend lakukan di /trx/pulsa).
+    var fee = state.isAdmin ? 0 : ADMIN_FEE;
+    c.price = c.amount + fee;
+    document.getElementById('konfBiayaAdminLabel').textContent = state.isAdmin ? 'Biaya Admin (bebas biaya)' : 'Biaya Admin';
+    document.getElementById('konfBiayaAdmin').textContent = formatRupiah(fee);
     document.getElementById('konfTotalBayar').textContent = formatRupiah(c.price);
 
     // Reflect the currently selected payment method on the card
@@ -2458,21 +2462,27 @@ Rincian Pembayaran
     var btn = this;
     var c = pulsaCheckout;
     if (!c) { navigate('pulsa'); return; }
-    if (pulsaSelectedMethod.id === 'finpay' && c.price > state.balance) {
-      toast('Saldo tidak mencukupi.');
+    var session = getSession();
+    if (!session || !session.session_token) {
+      toast('Sesi kamu habis, silakan login ulang.');
+      navigate('login');
       return;
     }
-    btn.innerHTML = '<div class="w-6 h-6 border-[3px] border-white/30 border-t-white rounded-full animate-spin"></div><span class="ml-2">Memproses...</span>';
-    btn.style.opacity = '0.8';
-    btn.disabled = true;
 
-    setTimeout(function () {
-      if (pulsaSelectedMethod.id === 'finpay') { state.balance -= c.price; }
-      var label = c.type === 'layanan'
-        ? (c.txLabel || c.productTitle)
-        : ('Pulsa ' + (c.provider || '') + ' ' + c.amountLabel + ' • 0' + c.phoneDigits).trim();
+    function setLoading() {
+      btn.innerHTML = '<div class="w-6 h-6 border-[3px] border-white/30 border-t-white rounded-full animate-spin"></div><span class="ml-2">Memproses...</span>';
+      btn.style.opacity = '0.8';
+      btn.disabled = true;
+    }
+    function resetButton() {
+      btn.innerHTML = '<span>Bayar Sekarang</span><span class="material-symbols-outlined text-[20px]">chevron_right</span>';
+      btn.style.opacity = '1';
+      btn.disabled = false;
+    }
+    function onSuccess(txData) {
+      var label = c.type === 'layanan' ? (c.txLabel || c.productTitle) : ('Pulsa ' + (c.provider || '') + ' ' + c.amountLabel + ' • 0' + c.phoneDigits).trim();
       var icon = c.type === 'layanan' ? (c.txIcon || c.productIcon) : 'phone_android';
-      addTransaction({ title: label, amount: c.price, sign: '-', icon: icon });
+      addTransaction({ title: label, amount: c.price, sign: '-', icon: icon, sn: txData && txData.sn });
 
       btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check_circle</span><span>Pembayaran Berhasil</span>';
       btn.classList.replace('bg-primary', 'bg-secondary');
@@ -2484,6 +2494,53 @@ Rincian Pembayaran
         selectedEwalletProvider = null;
         navigate('home');
       }, 900);
+    }
+
+    // ---- Produk ASLI dari H2H.id (pulsa, dan kategori lain yang sudah pakai katalog /products) ----
+    // Transaksi beneran dieksekusi ke backend, bukan simulasi lagi.
+    if (c.productCode && c.dest) {
+      if (pulsaSelectedMethod.id === 'finpay' && !state.isAdmin && c.price > state.balance) {
+        toast('Saldo tidak mencukupi.');
+        return;
+      }
+      setLoading();
+      fetch(WORKER_URL + '/trx/pulsa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.session_token },
+        body: JSON.stringify({ product: c.productCode, dest: c.dest }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (!res.status) {
+            toast(res.message || 'Transaksi gagal.');
+            resetButton();
+            return;
+          }
+          onSuccess(res.data);
+          // Ambil saldo ASLI dari server (bukan dikurangin manual di JS lagi)
+          fetch(WORKER_URL + '/balance/' + session.account.id)
+            .then(function (rb) { return rb.json(); })
+            .then(function (rbData) { if (rbData.status) { state.balance = Number(rbData.data.balance) || 0; state.isAdmin = rbData.data.source === 'h2h'; } })
+            .catch(function () {});
+        })
+        .catch(function () {
+          toast('Gagal menghubungi server, cek koneksi.');
+          resetButton();
+        });
+      return;
+    }
+
+    // ---- FALLBACK: layanan generik yang BELUM ada katalog produk asli (PDAM/BPJS/dll) ----
+    // PERINGATAN: ini MASIH simulasi lokal, BUKAN transaksi asli — belum ada endpoint
+    // backend untuk kategori ini. Saldo di sini nggak beneran kepotong di server.
+    if (pulsaSelectedMethod.id === 'finpay' && c.price > state.balance) {
+      toast('Saldo tidak mencukupi.');
+      return;
+    }
+    setLoading();
+    setTimeout(function () {
+      if (pulsaSelectedMethod.id === 'finpay') { state.balance -= c.price; }
+      onSuccess(null);
     }, 1400);
   });
 
@@ -2565,7 +2622,11 @@ Rincian Pembayaran
     fetch(WORKER_URL + '/balance/' + session.account.id)
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data.status) { state.balance = Number(data.data.balance) || 0; refreshHomeUI(); }
+        if (data.status) {
+          state.balance = Number(data.data.balance) || 0;
+          state.isAdmin = data.data.source === 'h2h'; // akun admin/owner: saldo diambil langsung dari H2H.id
+          refreshHomeUI();
+        }
       })
       .catch(function () { /* offline / worker belum di-deploy: biarkan saldo lokal */ });
   }
