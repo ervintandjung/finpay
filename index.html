@@ -791,6 +791,35 @@ Rincian Pembayaran
 </footer>
 </div>
 
+<!-- ======================= PAGE: PRODUK (generik: internet/pln/e-wallet/voucher game) ======================= -->
+<div id="page-produk" class="page hidden bg-background min-h-screen">
+<header class="fixed top-0 w-full z-50 bg-surface shadow-sm flex items-center gap-3 px-container-mobile min-h-16">
+<button data-nav="home" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors active:scale-95">
+<span class="material-symbols-outlined text-on-surface" data-icon="arrow_back">arrow_back</span>
+</button>
+<span id="produkPageTitle" class="font-headline-md text-headline-md font-bold text-on-surface">Produk</span>
+</header>
+<main class="pt-20 pb-28 px-container-mobile max-w-[560px] mx-auto w-full space-y-stack-lg">
+<section id="produkInputSection" class="bg-white p-stack-md rounded-xl border border-outline-variant/30 shadow-[0px_4px_20px_rgba(0,0,0,0.05)] mt-stack-md">
+<label id="produkInputLabel" class="font-label-md text-on-surface-variant mb-2 block">Nomor Tujuan</label>
+<div class="flex items-center bg-surface-container-low rounded-lg border border-transparent focus-within:border-primary transition-all">
+<input id="produkInput" class="w-full bg-transparent border-0 focus:ring-0 font-headline-md text-on-surface py-3 px-4 outline-none" type="text"/>
+</div>
+<div id="produkProviderChip" class="hidden items-center gap-2 mt-3 bg-surface-container-low border border-outline-variant/40 rounded-full pl-3 pr-3 py-1 w-fit">
+<span id="produkProviderChipText" class="font-label-sm text-label-sm text-on-surface font-medium"></span>
+<span class="material-symbols-outlined text-secondary text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</section>
+<section>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-sm">Pilih Nominal</h2>
+<div id="produkNominalGrid" class="grid grid-cols-2 gap-stack-sm">
+<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Memuat...</p>
+</div>
+</section>
+<p id="produkError" class="text-error text-sm font-medium hidden"></p>
+</main>
+</div>
+
 <!-- ======================= PAGE: METODE PEMBAYARAN ======================= -->
 <div id="page-metode-pembayaran" class="page hidden bg-background min-h-screen">
 <header class="fixed top-0 w-full z-50 bg-surface shadow-sm flex items-center justify-between px-container-mobile min-h-16">
@@ -1536,7 +1565,7 @@ Rincian Pembayaran
   //   - The real browser history is kept at a single guarded entry, so
   //     the hardware/gesture back button always asks to confirm exit once
   //     you're back at the root, instead of wandering into old history.
-  var pages = ['welcome', 'otp', 'nama', 'buat-pin', 'konfirmasi-pin', 'masukkan-pin', 'home', 'topup', 'transfer', 'pay', 'history', 'promo', 'profile', 'layanan', 'gamevoucher', 'ewallet', 'mlbb', 'pulsa', 'pulsa-konfirmasi', 'metode-pembayaran'];
+  var pages = ['welcome', 'otp', 'nama', 'buat-pin', 'konfirmasi-pin', 'masukkan-pin', 'home', 'topup', 'transfer', 'pay', 'history', 'promo', 'profile', 'layanan', 'gamevoucher', 'ewallet', 'mlbb', 'pulsa', 'pulsa-konfirmasi', 'metode-pembayaran', 'produk'];
   var pagesWithNav = { home: true, history: true, promo: true, profile: true };
   var navStack = [getSession() ? 'home' : 'welcome'];
 
@@ -1599,6 +1628,7 @@ Rincian Pembayaran
     if (page === 'mlbb') resetMlbbPage();
     if (page === 'pulsa') resetPulsaPage();
     if (page === 'pulsa-konfirmasi') refreshPulsaKonfirmasi();
+    if (page === 'produk') refreshProduk();
     if (page === 'profile') applySessionToUI();
     if (page === 'metode-pembayaran') refreshMetodePembayaran();
   }
@@ -1910,22 +1940,40 @@ Rincian Pembayaran
   });
 
   // ---------- E-WALLET ----------
+  // Providernya (GoPay/OVO/DANA/dll) ambil dari tombol yang udah ada di halaman E-Wallet,
+  // tapi sekarang beneran fetch produk & harga dari H2H.id lewat /products, bukan halaman kosong lagi.
   var selectedEwalletProvider = null;
   document.querySelectorAll('.ewallet-provider-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      selectedEwalletProvider = btn.getAttribute('data-provider');
-      navigate('layanan', 'ewallet');
+      var provider = btn.getAttribute('data-provider');
+      selectedEwalletProvider = provider;
+      openProdukKategori({
+        category: 'e_wallet',
+        operator: provider,
+        inputMode: 'text',
+        title: provider,
+        inputLabel: 'Nomor HP/Akun ' + provider,
+        recipientLabel: 'Nomor ' + provider,
+        productIcon: 'account_balance_wallet',
+      });
     });
   });
 
   // ---------- VOUCHER GAME ----------
+  // Sama kayak e-wallet: kartu game yang udah ada dipakai sebagai pemicu, tapi nominal &
+  // harganya sekarang beneran dari H2H.id (category voucher_game, operator = nama game).
   document.querySelectorAll('.game-card').forEach(function (card) {
     card.addEventListener('click', function () {
-      var gameSlug = card.getAttribute('data-game');
-      var gameName = card.getAttribute('data-game-name') || 'game ini';
-      if (gameSlug === 'mlbb') { navigate('mlbb'); return; }
-      // TODO: ganti dengan navigate ke halaman detail masing-masing begitu tersedia
-      toast('Halaman detail ' + gameName + ' segera hadir');
+      var gameName = card.getAttribute('data-game-name') || 'Game';
+      openProdukKategori({
+        category: 'voucher_game',
+        operator: gameName,
+        inputMode: 'text',
+        title: gameName,
+        inputLabel: 'User ID (tambahkan Zone ID kalau game-nya butuh, contoh: 123456789 (2001))',
+        recipientLabel: 'User ID',
+        productIcon: 'sports_esports',
+      });
     });
   });
 
@@ -2362,10 +2410,12 @@ Rincian Pembayaran
     if (!pulsaCheckout) { navigate('home'); return; }
     var c = pulsaCheckout;
 
-    // Product name + icon adapt to the type of purchase (pulsa vs layanan)
+    // Product name + icon adapt to the type of purchase (pulsa vs layanan vs produk generik)
     var productName = c.type === 'layanan'
       ? c.productTitle
-      : 'Pulsa ' + (c.provider || '') + ' ' + c.amountLabel;
+      : c.type === 'produk'
+        ? c.productTitleForKonfirmasi
+        : 'Pulsa ' + (c.provider || '') + ' ' + c.amountLabel;
     document.getElementById('konfProductName').textContent = productName;
 
     var productIcon = c.productIcon || 'phone_iphone';
@@ -2373,9 +2423,9 @@ Rincian Pembayaran
     iconEl.textContent = productIcon;
     iconEl.setAttribute('data-icon', productIcon);
 
-    // Recipient label/value adapt too (Nomor Penerima for pulsa, ID Pelanggan dll for layanan)
+    // Recipient label/value adapt too (Nomor Penerima for pulsa, ID Pelanggan dll for layanan/produk)
     document.getElementById('konfRecipientLabel').textContent = c.recipientLabel || 'Nomor Penerima';
-    var recipientValue = c.type === 'layanan' ? c.recipientValue : formatPhoneGroups(c.phoneDigits);
+    var recipientValue = (c.type === 'layanan' || c.type === 'produk') ? (c.recipientValue || c.dest) : formatPhoneGroups(c.phoneDigits);
     document.getElementById('konfPhoneNumber').textContent = recipientValue;
     document.getElementById('konfValidBadge').classList.toggle('hidden', !c.showValidBadge);
 
@@ -2411,10 +2461,12 @@ Rincian Pembayaran
     navigate('metode-pembayaran');
   });
 
-  // Back button target adapts to what's being confirmed (pulsa vs layanan)
+  // Back button target adapts to what's being confirmed (pulsa vs layanan vs produk generik)
   document.getElementById('konfirmasiBackBtn').addEventListener('click', function () {
     if (pulsaCheckout && pulsaCheckout.type === 'layanan') {
       navigate('layanan', currentLayananJenis);
+    } else if (pulsaCheckout && pulsaCheckout.type === 'produk') {
+      navigate('produk');
     } else {
       navigate('pulsa');
     }
@@ -2480,8 +2532,10 @@ Rincian Pembayaran
       btn.disabled = false;
     }
     function onSuccess(txData) {
-      var label = c.type === 'layanan' ? (c.txLabel || c.productTitle) : ('Pulsa ' + (c.provider || '') + ' ' + c.amountLabel + ' • 0' + c.phoneDigits).trim();
-      var icon = c.type === 'layanan' ? (c.txIcon || c.productIcon) : 'phone_android';
+      var label = c.type === 'layanan' ? (c.txLabel || c.productTitle)
+        : c.type === 'produk' ? (c.productTitleForKonfirmasi + ' • ' + (c.dest || ''))
+        : ('Pulsa ' + (c.provider || '') + ' ' + c.amountLabel + ' • 0' + c.phoneDigits).trim();
+      var icon = c.type === 'layanan' ? (c.txIcon || c.productIcon) : (c.productIcon || 'phone_android');
       addTransaction({ title: label, amount: c.price, sign: '-', icon: icon, sn: txData && txData.sn });
 
       btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check_circle</span><span>Pembayaran Berhasil</span>';
@@ -2512,7 +2566,7 @@ Rincian Pembayaran
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (!res.status) {
-            toast(res.message || 'Transaksi gagal.');
+            toast((res.message || 'Transaksi gagal.') + (res.detail ? (' — ' + res.detail) : ''));
             resetButton();
             return;
           }
@@ -2543,6 +2597,171 @@ Rincian Pembayaran
       onSuccess(null);
     }, 1400);
   });
+
+  // ---------- PRODUK GENERIK (internet/pln/e-wallet/voucher game — semua lewat /products asli) ----------
+  // produkConfig.inputMode:
+  //   'phone-auto' -> input nomor HP, operator DIDETEKSI OTOMATIS (kayak Pulsa). Dipakai Internet/paket_data.
+  //   'text'       -> input bebas (ID pelanggan / player ID / nomor e-wallet), operator SUDAH ditentukan
+  //                   di produkConfig.operator (atau kosong kalau kategori nggak butuh operator, misal PLN).
+  //   'none'       -> nggak ada input sama sekali (jarang dipakai).
+  var produkConfig = null;
+  var produkProvider = null; // hasil deteksi operator untuk mode 'phone-auto'
+
+  function openProdukKategori(cfg) {
+    produkConfig = cfg;
+    navigate('produk');
+  }
+
+  function getProdukDest() {
+    var input = document.getElementById('produkInput');
+    var raw = (input.value || '').trim();
+    if (!produkConfig || produkConfig.inputMode === 'none') return produkConfig && produkConfig.fixedDest || '';
+    if (produkConfig.inputMode === 'phone-auto') {
+      var digits = raw.replace(/\D/g, '').replace(/^0+/, '');
+      return digits ? '0' + digits : '';
+    }
+    return raw;
+  }
+
+  function bindProdukNominalCard(card) {
+    card.addEventListener('click', function () {
+      var dest = getProdukDest();
+      var errorEl = document.getElementById('produkError');
+      if (produkConfig.inputMode !== 'none' && !dest) {
+        errorEl.textContent = 'Isi ' + (produkConfig.inputLabel || 'nomor tujuan').toLowerCase() + ' terlebih dahulu.';
+        errorEl.classList.remove('hidden');
+        document.getElementById('produkInput').focus();
+        return;
+      }
+      errorEl.classList.add('hidden');
+      document.querySelectorAll('.produk-nominal-card').forEach(function (c2) {
+        c2.classList.remove('active', 'bg-primary', 'border-primary');
+        c2.classList.add('bg-white', 'border-outline-variant');
+      });
+      card.classList.add('active', 'bg-primary', 'border-primary');
+      card.classList.remove('bg-white', 'border-outline-variant');
+
+      pulsaCheckout = {
+        type: 'produk',
+        productCode: card.getAttribute('data-product-code'),
+        amountLabel: card.getAttribute('data-label'),
+        amount: Number(card.getAttribute('data-price')),
+        dest: dest,
+        productIcon: produkConfig.productIcon || 'payments',
+        productTitleForKonfirmasi: produkConfig.title + ' ' + (card.getAttribute('data-label') || ''),
+        recipientLabel: produkConfig.recipientLabel || 'Nomor Tujuan',
+        showValidBadge: false,
+      };
+      navigate('pulsa-konfirmasi');
+    });
+  }
+
+  function renderProdukNominalCards(items) {
+    var grid = document.getElementById('produkNominalGrid');
+    grid.innerHTML = '';
+    if (!items || !items.length) {
+      grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Produk untuk kategori ini belum tersedia di H2H.</p>';
+      return;
+    }
+    items.forEach(function (item) {
+      var priceNum = Number(item.price) || 0;
+      var card = document.createElement('button');
+      card.className = 'produk-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]';
+      card.setAttribute('data-product-code', item.product_code);
+      card.setAttribute('data-label', item.label || ('Rp ' + priceNum.toLocaleString('id-ID')));
+      card.setAttribute('data-price', priceNum);
+      card.innerHTML =
+        '<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">' + (item.label || '') + '</div>' +
+        '<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp ' + priceNum.toLocaleString('id-ID') + '</div>';
+      grid.appendChild(card);
+      bindProdukNominalCard(card);
+    });
+  }
+
+  var produkFetchToken = 0;
+  function loadProdukNominal() {
+    var grid = document.getElementById('produkNominalGrid');
+    var session = getSession();
+    if (!session || !session.session_token) {
+      grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">Silakan login dulu.</p>';
+      return;
+    }
+    var operator = produkConfig.operator || produkProvider;
+    if (produkConfig.inputMode === 'phone-auto' && !operator) {
+      grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Masukkan nomor HP untuk menampilkan produk &amp; harga.</p>';
+      return;
+    }
+    var myToken = ++produkFetchToken;
+    grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Memuat harga terbaru dari H2H...</p>';
+    var qs = new URLSearchParams({ category: produkConfig.category });
+    if (operator) qs.set('operator', operator);
+    fetch(WORKER_URL + '/products?' + qs.toString(), {
+      headers: { Authorization: 'Bearer ' + session.session_token },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (myToken !== produkFetchToken) return;
+        if (!res.status) {
+          grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">' + (res.message || 'Gagal memuat produk') + '</p>';
+          return;
+        }
+        renderProdukNominalCards(res.data);
+      })
+      .catch(function () {
+        if (myToken !== produkFetchToken) return;
+        grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">Gagal memuat produk, cek koneksi.</p>';
+      });
+  }
+
+  function handleProdukPhoneChange() {
+    var input = document.getElementById('produkInput');
+    var digits = input.value.replace(/\D/g, '');
+    if (digits.length >= 3) {
+      produkProvider = detectProvider(digits);
+      var chip = document.getElementById('produkProviderChip');
+      var chipText = document.getElementById('produkProviderChipText');
+      if (produkProvider) {
+        chipText.textContent = produkProvider;
+        chip.classList.remove('hidden');
+        chip.classList.add('flex');
+      } else {
+        chip.classList.add('hidden');
+        chip.classList.remove('flex');
+      }
+    } else {
+      produkProvider = null;
+      document.getElementById('produkProviderChip').classList.add('hidden');
+    }
+    document.getElementById('produkError').classList.add('hidden');
+    loadProdukNominal();
+  }
+
+  document.getElementById('produkInput').addEventListener('input', function () {
+    if (produkConfig && produkConfig.inputMode === 'phone-auto') handleProdukPhoneChange();
+  });
+
+  function refreshProduk() {
+    if (!produkConfig) { navigate('home'); return; }
+    document.getElementById('produkPageTitle').textContent = produkConfig.title;
+
+    var input = document.getElementById('produkInput');
+    var section = document.getElementById('produkInputSection');
+    var chip = document.getElementById('produkProviderChip');
+    document.getElementById('produkError').classList.add('hidden');
+    input.value = '';
+    chip.classList.add('hidden');
+    produkProvider = null;
+
+    if (produkConfig.inputMode === 'none') {
+      section.classList.add('hidden');
+    } else {
+      section.classList.remove('hidden');
+      document.getElementById('produkInputLabel').textContent = produkConfig.inputLabel || 'Nomor Tujuan';
+      input.type = produkConfig.inputMode === 'phone-auto' ? 'tel' : 'text';
+      input.setAttribute('inputmode', produkConfig.inputMode === 'phone-auto' ? 'numeric' : 'text');
+    }
+    loadProdukNominal();
+  }
 
   // ---------- LAYANAN ----------
   var layananConfig = {
