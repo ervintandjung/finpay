@@ -685,32 +685,8 @@
 <section>
 <h2 class="font-headline-md text-headline-md text-on-surface mb-stack-sm">Pilih Nominal</h2>
 <p class="font-label-sm text-label-sm text-on-surface-variant -mt-2 mb-2">Ketuk salah satu nominal untuk lanjut ke konfirmasi.</p>
-<div class="grid grid-cols-2 gap-stack-sm">
-<button class="pulsa-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]" data-pulsa="5.000" data-price="6500">
-<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">5.000</div>
-<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp 6.500</div>
-</button>
-<button class="pulsa-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]" data-pulsa="10.000" data-price="11500">
-<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">10.000</div>
-<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp 11.500</div>
-</button>
-<button class="pulsa-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)] overflow-hidden" data-pulsa="25.000" data-price="26000">
-<div class="absolute top-0 right-0 bg-secondary px-2 py-1 rounded-bl-lg text-[10px] text-white font-bold uppercase">Populer</div>
-<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">25.000</div>
-<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp 26.000</div>
-</button>
-<button class="pulsa-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]" data-pulsa="50.000" data-price="51000">
-<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">50.000</div>
-<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp 51.000</div>
-</button>
-<button class="pulsa-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]" data-pulsa="100.000" data-price="99500">
-<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">100.000</div>
-<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp 99.500</div>
-</button>
-<button class="pulsa-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]" data-pulsa="200.000" data-price="198500">
-<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">200.000</div>
-<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp 198.500</div>
-</button>
+<div id="pulsaNominalGrid" class="grid grid-cols-2 gap-stack-sm">
+<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Masukkan nomor HP untuk menampilkan nominal &amp; harga.</p>
 </div>
 </section>
 <!-- Special Deal -->
@@ -2236,12 +2212,101 @@ Rincian Pembayaran
   function resetPulsaPage() {
     document.getElementById('pulsaPhoneInput').value = '';
     hideProviderChip();
-    document.querySelectorAll('.pulsa-nominal-card').forEach(function (card) {
-      card.classList.remove('active', 'bg-primary', 'border-primary');
-      card.classList.add('bg-white', 'border-outline-variant');
-    });
     pulsaProvider = null;
     document.getElementById('pulsaError').classList.add('hidden');
+    document.getElementById('pulsaNominalGrid').innerHTML =
+      '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Masukkan nomor HP untuk menampilkan nominal &amp; harga.</p>';
+  }
+
+  // ---------- NOMINAL PULSA: diambil dari harga ASLI H2H.id (via backend /products/pulsa) ----------
+  // Tidak ada lagi nominal/harga yang ditulis manual di file ini.
+  function bindPulsaNominalCard(card) {
+    card.addEventListener('click', function () {
+      var phoneDigits = getPulsaDigits();
+      var errorEl = document.getElementById('pulsaError');
+      if (phoneDigits.length < 9) {
+        errorEl.textContent = 'Masukkan nomor HP yang valid terlebih dahulu.';
+        errorEl.classList.remove('hidden');
+        document.getElementById('pulsaPhoneInput').focus();
+        return;
+      }
+      errorEl.classList.add('hidden');
+      document.querySelectorAll('.pulsa-nominal-card').forEach(function (c) {
+        c.classList.remove('active', 'bg-primary', 'border-primary');
+        c.classList.add('bg-white', 'border-outline-variant');
+      });
+      card.classList.add('active', 'bg-primary', 'border-primary');
+      card.classList.remove('bg-white', 'border-outline-variant');
+      pulsaCheckout = {
+        type: 'pulsa',
+        provider: pulsaProvider,
+        productCode: card.getAttribute('data-product-code'),
+        amountLabel: card.getAttribute('data-pulsa'),
+        // amount = HARGA ASLI dari H2H.id (data-price), bukan nominal pulsa —
+        // ini yang tadinya hardcode manual, sekarang diambil dari backend.
+        amount: Number(card.getAttribute('data-price')),
+        phoneDigits: phoneDigits,
+        productIcon: 'phone_iphone',
+        recipientLabel: 'Nomor Penerima',
+        showValidBadge: true
+      };
+      navigate('pulsa-konfirmasi');
+    });
+  }
+
+  function renderPulsaNominalCards(items) {
+    var grid = document.getElementById('pulsaNominalGrid');
+    grid.innerHTML = '';
+    if (!items || !items.length) {
+      grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Produk pulsa untuk operator ini belum tersedia di H2H.</p>';
+      return;
+    }
+    items.forEach(function (item) {
+      var priceNum = Number(item.price) || 0;
+      var card = document.createElement('button');
+      card.className = 'pulsa-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]';
+      card.setAttribute('data-product-code', item.product_code);
+      card.setAttribute('data-pulsa', item.label || ('Rp ' + priceNum.toLocaleString('id-ID')));
+      card.setAttribute('data-price', priceNum);
+      card.innerHTML =
+        '<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">' + (item.label || '') + '</div>' +
+        '<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp ' + priceNum.toLocaleString('id-ID') + '</div>';
+      grid.appendChild(card);
+      bindPulsaNominalCard(card);
+    });
+  }
+
+  var pulsaNominalFetchToken = 0;
+  function loadPulsaNominal() {
+    var digits = getPulsaDigits();
+    var grid = document.getElementById('pulsaNominalGrid');
+    if (digits.length < 9 || !pulsaProvider) {
+      grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Masukkan nomor HP untuk menampilkan nominal &amp; harga.</p>';
+      return;
+    }
+    var session = getSession();
+    if (!session || !session.session_token) {
+      grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">Silakan login dulu.</p>';
+      return;
+    }
+    var myToken = ++pulsaNominalFetchToken;
+    grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Memuat harga terbaru dari H2H...</p>';
+    fetch(WORKER_URL + '/products/pulsa?phone=' + encodeURIComponent(digits), {
+      headers: { Authorization: 'Bearer ' + session.session_token },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (myToken !== pulsaNominalFetchToken) return; // ketikan sudah berubah lagi, abaikan hasil basi
+        if (!res.status) {
+          grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">' + (res.message || 'Gagal memuat produk pulsa') + '</p>';
+          return;
+        }
+        renderPulsaNominalCards(res.data);
+      })
+      .catch(function () {
+        if (myToken !== pulsaNominalFetchToken) return;
+        grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">Gagal memuat produk pulsa, cek koneksi.</p>';
+      });
   }
 
   function handlePulsaDigitsChange() {
@@ -2254,6 +2319,7 @@ Rincian Pembayaran
       hideProviderChip();
     }
     document.getElementById('pulsaError').classList.add('hidden');
+    loadPulsaNominal();
   }
 
   document.getElementById('pulsaPhoneInput').addEventListener('input', function (e) {
@@ -2281,34 +2347,6 @@ Rincian Pembayaran
     } catch (err) {
       // User cancelled the picker or denied permission — no error toast needed
     }
-  });
-
-  document.querySelectorAll('.pulsa-nominal-card').forEach(function (card) {
-    card.addEventListener('click', function () {
-      var phoneDigits = getPulsaDigits();
-      var errorEl = document.getElementById('pulsaError');
-      if (phoneDigits.length < 9) {
-        errorEl.textContent = 'Masukkan nomor HP yang valid terlebih dahulu.';
-        errorEl.classList.remove('hidden');
-        document.getElementById('pulsaPhoneInput').focus();
-        return;
-      }
-      errorEl.classList.add('hidden');
-      card.classList.add('active', 'bg-primary', 'border-primary');
-      card.classList.remove('bg-white', 'border-outline-variant');
-      pulsaCheckout = {
-        type: 'pulsa',
-        provider: pulsaProvider,
-        amountLabel: card.getAttribute('data-pulsa'),
-        amount: Number(card.getAttribute('data-pulsa').replace(/\D/g, '')),
-        price: Number(card.getAttribute('data-price')),
-        phoneDigits: phoneDigits,
-        productIcon: 'phone_iphone',
-        recipientLabel: 'Nomor Penerima',
-        showValidBadge: true
-      };
-      navigate('pulsa-konfirmasi');
-    });
   });
 
   // ---------- GLOBAL: ADMIN FEE ----------
@@ -2560,6 +2598,10 @@ Rincian Pembayaran
     });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Backspace' && !e.target.value && index > 0) { otpInputs[index - 1].focus(); }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('otpVerifyBtn').click();
+      }
     });
     input.addEventListener('paste', function (e) {
       var text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
@@ -2840,69 +2882,5 @@ Rincian Pembayaran
 })();
 </script>
 
-<!-- ===== POP UP TAMBAHAN: Notifikasi lalu Lokasi (hanya pop up, tidak mengubah halaman) ===== -->
-<style>
-  .permission-dialog {
-    width: 270px;
-    background: rgba(249, 249, 249, 0.82);
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    border-radius: 14px;
-  }
-  .dialog-button {
-    height: 44px;
-    border-top: 0.5px solid rgba(60, 60, 67, 0.2);
-    color: #007AFF;
-  }
-</style>
-
-<!-- Pop up 1: Notifikasi (muncul pertama) -->
-<div class="fixed inset-0 z-[999] flex items-center justify-center px-container-mobile" id="permission-modal">
-  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-  <div class="relative w-[270px] bg-surface-container-lowest rounded-xl shadow-xl overflow-hidden flex flex-col">
-    <div class="p-stack-md text-center space-y-1">
-      <h2 class="font-bold text-[17px] leading-tight text-on-surface">Izinkan "FinPay" mengirimkan notifikasi?</h2>
-      <p class="text-[13px] leading-tight text-on-surface">Notifikasi dapat berupa peringatan, suara, dan ikon lencana.</p>
-    </div>
-    <div class="flex border-t border-outline-variant/30">
-      <button class="flex-1 h-11 text-primary font-body-md border-r border-outline-variant/30 active:bg-surface-variant" onclick="document.getElementById('permission-modal').remove(); showLocationModal();">
-        Jangan Izinkan
-      </button>
-      <button class="flex-1 h-11 text-primary font-bold font-body-md active:bg-surface-variant" onclick="document.getElementById('permission-modal').remove(); showLocationModal();">
-        Izinkan
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Pop up 2: Lokasi (muncul setelah pop up notifikasi ditutup) -->
-<div class="fixed inset-0 bg-black/30 z-[999] items-center justify-center px-8" id="location-permission-modal" style="display:none;">
-  <div class="permission-dialog shadow-2xl flex flex-col overflow-hidden">
-    <div class="p-4 text-center">
-      <h2 class="text-[17px] font-semibold text-black leading-tight mb-1">
-        Izinkan "FinPay" mengakses lokasi perangkat ini?
-      </h2>
-      <p class="text-[13px] text-black leading-snug">
-        Lokasi Anda digunakan untuk meningkatkan keamanan akun dan menemukan agen terdekat.
-      </p>
-    </div>
-    <div class="flex flex-col">
-      <button class="dialog-button flex items-center justify-center text-[17px] font-normal active:bg-black/10 transition-colors" onclick="document.getElementById('location-permission-modal').remove()">
-        Jangan Izinkan
-      </button>
-      <button class="dialog-button flex items-center justify-center text-[17px] font-semibold active:bg-black/10 transition-colors border-t border-black/10" onclick="document.getElementById('location-permission-modal').remove()">
-        Izinkan
-      </button>
-    </div>
-  </div>
-</div>
-<script>
-  function showLocationModal() {
-    var locationModal = document.getElementById('location-permission-modal');
-    if (locationModal) {
-      locationModal.style.display = 'flex';
-    }
-  }
-</script>
 </body>
 </html>
