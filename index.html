@@ -261,7 +261,7 @@
 </div>
 <span class="text-[10px] text-center font-medium leading-tight text-on-surface-variant">Pulsa</span>
 </button>
-<button data-nav="layanan" data-jenis="listrik" class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+<button id="menuListrikBtn" class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
 <div class="w-full aspect-square bg-white rounded-xl shadow-sm border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-high transition-colors">
 <span class="material-symbols-outlined text-primary text-[28px]" data-icon="bolt">bolt</span>
 </div>
@@ -273,7 +273,7 @@
 </div>
 <span class="text-[10px] text-center font-medium leading-tight text-on-surface-variant">E-Wallet</span>
 </button>
-<button data-nav="layanan" data-jenis="internet" class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
+<button id="menuInternetBtn" class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
 <div class="w-full aspect-square bg-white rounded-xl shadow-sm border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-high transition-colors">
 <span class="material-symbols-outlined text-primary text-[28px]" data-icon="wifi">wifi</span>
 </div>
@@ -1503,6 +1503,14 @@ Rincian Pembayaran
     clearTimeout(el._t);
     el._t = setTimeout(function () { el.classList.remove('show'); }, 2200);
   }
+  // --- SEMENTARA (buat debugging): tangkap error JS yang nggak ketangkep, tampilin sebagai toast ---
+  // supaya kelihatan di HP langsung tanpa perlu buka console. Aman dihapus nanti kalau udah stabil.
+  window.addEventListener('error', function (e) {
+    toast('JS Error: ' + (e && e.message ? e.message : 'unknown') + ' (baris ' + (e && e.lineno) + ')');
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    toast('Promise Error: ' + (e && e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+  });
   function attachRipple(root) {
     (root || document).querySelectorAll('button').forEach(function (button) {
       if (button._rippleBound) return;
@@ -2793,6 +2801,28 @@ Rincian Pembayaran
     }
     loadProdukNominal();
   }
+
+  document.getElementById('menuInternetBtn').addEventListener('click', function () {
+    openProdukKategori({
+      category: 'paket_data',
+      inputMode: 'phone-auto',
+      title: 'Internet',
+      inputLabel: 'Nomor HP',
+      recipientLabel: 'Nomor HP',
+      productIcon: 'wifi',
+    });
+  });
+
+  document.getElementById('menuListrikBtn').addEventListener('click', function () {
+    openProdukKategori({
+      category: 'pln',
+      inputMode: 'text',
+      title: 'Listrik PLN',
+      inputLabel: 'ID Pelanggan / No. Meter',
+      recipientLabel: 'ID Pelanggan',
+      productIcon: 'bolt',
+    });
+  });
 
   // ---------- LAYANAN ----------
   var layananConfig = {
