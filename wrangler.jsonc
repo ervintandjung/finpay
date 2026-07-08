@@ -1,0 +1,8 @@
+{
+  "name": "finpay-frontend",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "."
+  }
+}
