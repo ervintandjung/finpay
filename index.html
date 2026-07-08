@@ -3121,12 +3121,8 @@ Rincian Pembayaran
   renderRoute();
   refreshHomeUI();
   applySessionToUI();
-})();
-</script>
 
-<!-- ===== PIN + NAMA handlers (added for app-like flow) ===== -->
-<script>
-(function () {
+  // ===== PIN + NAMA handlers (digabung ke scope yang sama biar bisa akses navigate/getSession/dll) =====
   // Nama
   var namaInput = document.getElementById('namaInput');
   var namaError = document.getElementById('namaError');
