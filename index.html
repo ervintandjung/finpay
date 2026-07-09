@@ -277,7 +277,7 @@
 <div class="w-full aspect-square bg-white rounded-xl shadow-sm border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-high transition-colors">
 <span class="material-symbols-outlined text-primary text-[28px]" data-icon="wifi">wifi</span>
 </div>
-<span class="text-[10px] text-center font-medium leading-tight text-on-surface-variant">Internet</span>
+<span class="text-[10px] text-center font-medium leading-tight text-on-surface-variant">Paket Data</span>
 </button>
 <button data-nav="layanan" data-jenis="pdam" class="flex flex-col items-center gap-2 active:scale-95 transition-transform">
 <div class="w-full aspect-square bg-white rounded-xl shadow-sm border border-outline-variant/30 flex items-center justify-center hover:bg-surface-container-high transition-colors">
@@ -340,39 +340,9 @@
 <h2 class="font-headline-md text-headline-md text-on-surface">Transaksi Terakhir</h2>
 <button data-nav="history" class="text-primary font-label-sm">Lihat Semua</button>
 </div>
-<div class="space-y-4" id="homeTxList">
-<div class="flex items-center gap-4 bg-white p-4 rounded-xl border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow cursor-pointer active:scale-[0.98] transition-transform">
-<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
-</div>
-<div class="flex-1">
-<div class="flex justify-between items-start">
-<h3 class="font-label-md text-on-surface">Top Up GoPay</h3>
-<span class="text-primary font-bold">+ Rp100.000</span>
-</div>
-<div class="flex justify-between items-center mt-1">
-<p class="text-xs text-on-surface-variant">12 Okt 2023 • 14:20</p>
-<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full">Berhasil</span>
-</div>
-</div>
-</div>
-<div class="flex items-center gap-4 bg-white p-4 rounded-xl border border-outline-variant/30 shadow-sm hover:shadow-md transition-shadow cursor-pointer active:scale-[0.98] transition-transform">
-<div class="w-12 h-12 rounded-full bg-tertiary-fixed/20 flex items-center justify-center text-tertiary">
-<span class="material-symbols-outlined" data-icon="phone_android">phone_android</span>
-</div>
-<div class="flex-1">
-<div class="flex justify-between items-start">
-<h3 class="font-label-md text-on-surface">Pulsa Telkomsel</h3>
-<span class="text-on-surface font-bold">- Rp52.500</span>
-</div>
-<div class="flex justify-between items-center mt-1">
-<p class="text-xs text-on-surface-variant">11 Okt 2023 • 09:45</p>
-<span class="px-2 py-0.5 bg-secondary-container text-on-secondary-container text-[10px] font-bold rounded-full">Berhasil</span>
-</div>
-</div>
-</div>
-</div>
+<div class="space-y-4" id="homeTxList"></div>
 </section>
+<p id="homeTxEmptyMsg" class="hidden text-center text-on-surface-variant py-6 text-sm">Belum ada transaksi.</p>
 </main>
 </div>
 
@@ -816,10 +786,17 @@ Rincian Pembayaran
 <label id="produkInputLabel" class="font-label-md text-on-surface-variant mb-2 block">Nomor Tujuan</label>
 <div class="flex items-center bg-surface-container-low rounded-lg border border-transparent focus-within:border-primary transition-all">
 <input id="produkInput" class="w-full bg-transparent border-0 focus:ring-0 font-headline-md text-on-surface py-3 px-4 outline-none" type="text"/>
+<button type="button" id="produkContactBtn" title="Pilih dari kontak" class="hidden pr-3 pl-2 shrink-0 items-center justify-center active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">contacts</span>
+</button>
 </div>
 <div id="produkProviderChip" class="hidden items-center gap-2 mt-3 bg-surface-container-low border border-outline-variant/40 rounded-full pl-3 pr-3 py-1 w-fit">
 <span id="produkProviderChipText" class="font-label-sm text-label-sm text-on-surface font-medium"></span>
 <span class="material-symbols-outlined text-secondary text-[16px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div id="produkNameBadge" class="hidden items-center gap-2 mt-3 bg-secondary-container/40 border border-secondary/30 rounded-lg px-3 py-2">
+<span class="material-symbols-outlined text-secondary text-[18px]">person</span>
+<span id="produkNameBadgeText" class="font-label-sm text-label-sm text-on-surface font-medium"></span>
 </div>
 </section>
 <section>
@@ -1552,13 +1529,14 @@ Rincian Pembayaran
   function refreshHomeUI() {
     document.getElementById('homeBalance').textContent = formatRupiah(state.balance);
     var list = document.getElementById('homeTxList');
-    // remove any dynamically-added items, keep the two static demo rows
-    list.querySelectorAll('[data-dynamic="1"]').forEach(function (n) { n.remove(); });
-    state.transactions.slice(0, 5).forEach(function (tx) {
-      var el = renderTxItem(tx);
-      el.setAttribute('data-dynamic', '1');
-      list.insertBefore(el, list.firstChild);
+    var emptyMsg = document.getElementById('homeTxEmptyMsg');
+    list.innerHTML = '';
+    var recent = state.transactions.slice(0, 5);
+    if (emptyMsg) emptyMsg.classList.toggle('hidden', recent.length > 0);
+    recent.forEach(function (tx) {
+      list.appendChild(renderTxItem(tx));
     });
+    attachRipple(list);
   }
 
   // ---------- Balance visibility toggle ----------
@@ -1990,6 +1968,7 @@ Rincian Pembayaran
         category: 'e_wallet',
         operator: provider,
         inputMode: 'text',
+        includeOpenDenom: true,
         title: provider,
         inputLabel: 'Nomor HP/Akun ' + provider,
         recipientLabel: 'Nomor ' + provider,
@@ -2008,6 +1987,7 @@ Rincian Pembayaran
         category: 'voucher_game',
         operator: gameName,
         inputMode: 'text',
+        checkId: true,
         title: gameName,
         inputLabel: 'User ID (tambahkan Zone ID kalau game-nya butuh, contoh: 123456789 (2001))',
         recipientLabel: 'User ID',
@@ -2186,20 +2166,40 @@ Rincian Pembayaran
   }
 
   // ---------- HISTORY ----------
-  var demoTx = [
-    { title: 'Top Up GoPay', amount: 100000, sign: '+', icon: 'account_balance_wallet', date: new Date('2023-10-12T14:20:00'), status: 'Berhasil' },
-    { title: 'Pulsa Telkomsel', amount: 52500, sign: '-', icon: 'phone_android', date: new Date('2023-10-11T09:45:00'), status: 'Berhasil' },
-  ];
   var historyFilter = 'all';
+  var historyLoaded = false;
+  function loadRealHistory(callback) {
+    var session = getSession();
+    if (!session || !session.session_token) { if (callback) callback(); return; }
+    fetch(WORKER_URL + '/history', { headers: { Authorization: 'Bearer ' + session.session_token } })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.status && Array.isArray(res.data)) {
+          state.transactions = res.data.map(function (tx) {
+            return Object.assign({}, tx, { date: new Date(tx.date) });
+          });
+          historyLoaded = true;
+        }
+        if (callback) callback();
+      })
+      .catch(function () { if (callback) callback(); });
+  }
   function refreshHistory() {
     var listEl = document.getElementById('historyTxList');
     var emptyMsg = document.getElementById('historyEmptyMsg');
-    var allTx = state.transactions.concat(demoTx);
-    var filtered = historyFilter === 'all' ? allTx : allTx.filter(function (t) { return t.sign === historyFilter; });
-    listEl.innerHTML = '';
-    emptyMsg.classList.toggle('hidden', filtered.length > 0);
-    filtered.forEach(function (tx) { listEl.appendChild(renderTxItem(tx)); });
-    attachRipple(document.getElementById('page-history'));
+    function render() {
+      var filtered = historyFilter === 'all' ? state.transactions : state.transactions.filter(function (t) { return t.sign === historyFilter; });
+      listEl.innerHTML = '';
+      emptyMsg.classList.toggle('hidden', filtered.length > 0);
+      filtered.forEach(function (tx) { listEl.appendChild(renderTxItem(tx)); });
+      attachRipple(document.getElementById('page-history'));
+    }
+    if (!historyLoaded) {
+      listEl.innerHTML = '<p class="text-center text-on-surface-variant py-10 text-sm">Memuat riwayat...</p>';
+      loadRealHistory(function () { render(); refreshHomeUI(); });
+    } else {
+      render();
+    }
   }
   document.getElementById('filterTabs').addEventListener('click', function (e) {
     var btn = e.target.closest('button');
@@ -2418,7 +2418,10 @@ Rincian Pembayaran
 
   document.getElementById('pulsaContactBtn').addEventListener('click', async function () {
     if (!(navigator.contacts && navigator.contacts.select)) {
-      toast('Akses kontak tidak didukung di perangkat/browser ini.');
+      // Contact Picker API browser bawaan ini CUMA jalan di Chrome Android biasa (tab browser),
+      // TIDAK didukung di dalam WebView wrapper (Median.co, dsb) yang dipakai buat bikin app-nya.
+      // Ini keterbatasan platform, bukan sesuatu yang bisa diperbaiki lewat kode web biasa.
+      alert('Pilih dari kontak tidak didukung di aplikasi ini. Silakan ketik nomor secara manual.');
       return;
     }
     try {
@@ -2600,7 +2603,7 @@ Rincian Pembayaran
       fetch(WORKER_URL + '/trx/pulsa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.session_token },
-        body: JSON.stringify({ product: c.productCode, dest: c.dest }),
+        body: JSON.stringify({ product: c.productCode, dest: c.dest, open_amount: c.openAmount || undefined }),
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
@@ -2672,6 +2675,22 @@ Rincian Pembayaran
         document.getElementById('produkInput').focus();
         return;
       }
+
+      var isOpenDenom = card.getAttribute('data-open-denom') === '1';
+      var feeAmount = Number(card.getAttribute('data-price')) || 0;
+      var openAmount = null;
+
+      if (isOpenDenom) {
+        var input = prompt('Masukkan nominal top up (kelipatan Rp1.000, minimal Rp10.000):');
+        if (input === null) return; // dibatalkan
+        openAmount = parseInt(String(input).replace(/\D/g, ''), 10);
+        if (!openAmount || openAmount < 10000 || openAmount % 1000 !== 0) {
+          errorEl.textContent = 'Nominal harus kelipatan Rp1.000 dan minimal Rp10.000.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+      }
+
       errorEl.classList.add('hidden');
       document.querySelectorAll('.produk-nominal-card').forEach(function (c2) {
         c2.classList.remove('active', 'bg-primary', 'border-primary');
@@ -2683,11 +2702,12 @@ Rincian Pembayaran
       pulsaCheckout = {
         type: 'produk',
         productCode: card.getAttribute('data-product-code'),
-        amountLabel: card.getAttribute('data-label'),
-        amount: Number(card.getAttribute('data-price')),
+        amountLabel: isOpenDenom ? ('Nominal Bebas Rp ' + openAmount.toLocaleString('id-ID')) : card.getAttribute('data-label'),
+        amount: isOpenDenom ? (feeAmount + openAmount) : Number(card.getAttribute('data-price')),
+        openAmount: openAmount,
         dest: dest,
         productIcon: produkConfig.productIcon || 'payments',
-        productTitleForKonfirmasi: produkConfig.title + ' ' + (card.getAttribute('data-label') || ''),
+        productTitleForKonfirmasi: produkConfig.title + ' ' + (isOpenDenom ? 'Nominal Bebas' : (card.getAttribute('data-label') || '')),
         recipientLabel: produkConfig.recipientLabel || 'Nomor Tujuan',
         showValidBadge: false,
       };
@@ -2705,13 +2725,19 @@ Rincian Pembayaran
     items.forEach(function (item) {
       var priceNum = Number(item.price) || 0;
       var card = document.createElement('button');
-      card.className = 'produk-nominal-card group relative bg-white p-stack-md rounded-xl border border-outline-variant text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)]';
+      var isOpenDenom = !!item.is_open_denom;
+      card.className = 'produk-nominal-card group relative bg-white p-stack-md rounded-xl border text-left transition-all active:scale-95 shadow-[0px_4px_20px_rgba(0,0,0,0.05)] ' +
+        (isOpenDenom ? 'border-secondary/50 col-span-2' : 'border-outline-variant');
       card.setAttribute('data-product-code', item.product_code);
       card.setAttribute('data-label', item.label || ('Rp ' + priceNum.toLocaleString('id-ID')));
       card.setAttribute('data-price', priceNum);
-      card.innerHTML =
-        '<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">' + (item.label || '') + '</div>' +
-        '<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp ' + priceNum.toLocaleString('id-ID') + '</div>';
+      if (isOpenDenom) card.setAttribute('data-open-denom', '1');
+      card.innerHTML = isOpenDenom
+        ? '<div class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-[20px]">bolt</span>' +
+          '<div class="font-headline-md text-headline-md text-on-surface">' + (item.label || 'Nominal Bebas') + '</div></div>' +
+          '<div class="font-label-sm text-label-sm text-on-surface-variant mt-1">Isi sendiri, kelipatan Rp1.000 · biaya admin Rp ' + priceNum.toLocaleString('id-ID') + '</div>'
+        : '<div class="font-headline-md text-headline-md text-on-surface group-[.active]:text-white">' + (item.label || '') + '</div>' +
+          '<div class="font-label-sm text-label-sm text-on-surface-variant mt-1 group-[.active]:text-white/80">Rp ' + priceNum.toLocaleString('id-ID') + '</div>';
       grid.appendChild(card);
       bindProdukNominalCard(card);
     });
@@ -2732,24 +2758,37 @@ Rincian Pembayaran
     }
     var myToken = ++produkFetchToken;
     grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Memuat harga terbaru dari H2H...</p>';
-    var qs = new URLSearchParams({ category: produkConfig.category });
-    if (operator) qs.set('operator', operator);
-    fetch(WORKER_URL + '/products?' + qs.toString(), {
-      headers: { Authorization: 'Bearer ' + session.session_token },
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (myToken !== produkFetchToken) return;
-        if (!res.status) {
-          grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">' + (res.message || 'Gagal memuat produk') + '</p>';
-          return;
-        }
-        renderProdukNominalCards(res.data);
+
+    function fetchCategory(category) {
+      var qs = new URLSearchParams({ category: category });
+      if (operator) qs.set('operator', operator);
+      return fetch(WORKER_URL + '/products?' + qs.toString(), {
+        headers: { Authorization: 'Bearer ' + session.session_token },
       })
-      .catch(function () {
-        if (myToken !== produkFetchToken) return;
-        grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-error py-4 text-center">Gagal memuat produk, cek koneksi.</p>';
+        .then(function (r) { return r.json(); })
+        .then(function (res) { return (res.status && res.data) ? res.data : []; })
+        .catch(function () { return []; });
+    }
+
+    // Untuk e-wallet, produk 'nominal_bebas' (topup custom) provider yang sama juga
+    // ditampilkan, ditandai khusus supaya user diminta isi nominal sendiri.
+    var promises = [fetchCategory(produkConfig.category)];
+    if (produkConfig.includeOpenDenom) promises.push(fetchCategory('nominal_bebas'));
+
+    Promise.all(promises).then(function (results) {
+      if (myToken !== produkFetchToken) return;
+      var normalItems = results[0] || [];
+      var openDenomItems = (results[1] || []).map(function (item) {
+        return Object.assign({}, item, { is_open_denom: true });
       });
+      var allItems = normalItems.concat(openDenomItems);
+      if (!allItems.length) {
+        grid.innerHTML = '<p class="col-span-2 font-label-sm text-label-sm text-on-surface-variant py-4 text-center">Produk untuk kategori ini belum tersedia di H2H.</p>';
+        return;
+      }
+      produkFirstProductCode = normalItems[0] ? normalItems[0].product_code : (allItems[0] && allItems[0].product_code) || null;
+      renderProdukNominalCards(allItems);
+    });
   }
 
   function handleProdukPhoneChange() {
@@ -2775,8 +2814,69 @@ Rincian Pembayaran
     loadProdukNominal();
   }
 
+  var produkFirstProductCode = null;
+  var produkNameCheckTimer = null;
+
+  // Cek nama pelanggan terdaftar (PLN/Voucher Game) — best-effort, TIDAK menghalangi
+  // kalau gagal (endpoint H2H untuk ini belum tentu 100% cocok, lihat komentar backend).
+  function checkProdukName() {
+    var badge = document.getElementById('produkNameBadge');
+    var badgeText = document.getElementById('produkNameBadgeText');
+    var dest = getProdukDest();
+    if (!produkConfig.checkId || !dest || dest.length < 6 || !produkFirstProductCode) {
+      badge.classList.add('hidden');
+      badge.classList.remove('flex');
+      return;
+    }
+    var session = getSession();
+    if (!session || !session.session_token) return;
+    var qs = new URLSearchParams({ product_code: produkFirstProductCode, dest: dest });
+    fetch(WORKER_URL + '/products/check-id?' + qs.toString(), {
+      headers: { Authorization: 'Bearer ' + session.session_token },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.status && res.data && res.data.name) {
+          badgeText.textContent = 'Atas nama: ' + res.data.name;
+          badge.classList.remove('hidden');
+          badge.classList.add('flex');
+        } else {
+          badge.classList.add('hidden');
+          badge.classList.remove('flex');
+        }
+      })
+      .catch(function () {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+      });
+  }
+
   document.getElementById('produkInput').addEventListener('input', function () {
     if (produkConfig && produkConfig.inputMode === 'phone-auto') handleProdukPhoneChange();
+    if (produkConfig && produkConfig.checkId) {
+      clearTimeout(produkNameCheckTimer);
+      produkNameCheckTimer = setTimeout(checkProdukName, 600); // debounce, jangan spam tiap ketikan
+    }
+  });
+
+  document.getElementById('produkContactBtn').addEventListener('click', async function () {
+    if (!(navigator.contacts && navigator.contacts.select)) {
+      alert('Pilih dari kontak tidak didukung di aplikasi ini. Silakan ketik nomor secara manual.');
+      return;
+    }
+    try {
+      var contacts = await navigator.contacts.select(['tel'], { multiple: false });
+      if (!contacts || !contacts.length || !contacts[0].tel || !contacts[0].tel.length) {
+        toast('Kontak yang dipilih tidak memiliki nomor telepon.');
+        return;
+      }
+      var raw = contacts[0].tel[0].replace(/\D/g, '');
+      if (raw.indexOf('62') === 0 && raw.length > 10) raw = '0' + raw.slice(2);
+      document.getElementById('produkInput').value = raw;
+      handleProdukPhoneChange();
+    } catch (err) {
+      // dibatalkan user, nggak perlu toast
+    }
   });
 
   function refreshProduk() {
@@ -2790,6 +2890,9 @@ Rincian Pembayaran
     input.value = '';
     chip.classList.add('hidden');
     produkProvider = null;
+    produkFirstProductCode = null;
+    document.getElementById('produkNameBadge').classList.add('hidden');
+    document.getElementById('produkNameBadge').classList.remove('flex');
 
     if (produkConfig.inputMode === 'none') {
       section.classList.add('hidden');
@@ -2798,6 +2901,9 @@ Rincian Pembayaran
       document.getElementById('produkInputLabel').textContent = produkConfig.inputLabel || 'Nomor Tujuan';
       input.type = produkConfig.inputMode === 'phone-auto' ? 'tel' : 'text';
       input.setAttribute('inputmode', produkConfig.inputMode === 'phone-auto' ? 'numeric' : 'text');
+      var contactBtn = document.getElementById('produkContactBtn');
+      contactBtn.classList.toggle('hidden', produkConfig.inputMode !== 'phone-auto');
+      contactBtn.classList.toggle('flex', produkConfig.inputMode === 'phone-auto');
     }
     loadProdukNominal();
   }
@@ -2806,7 +2912,7 @@ Rincian Pembayaran
     openProdukKategori({
       category: 'paket_data',
       inputMode: 'phone-auto',
-      title: 'Internet',
+      title: 'Paket Data',
       inputLabel: 'Nomor HP',
       recipientLabel: 'Nomor HP',
       productIcon: 'wifi',
@@ -2817,6 +2923,7 @@ Rincian Pembayaran
     openProdukKategori({
       category: 'pln',
       inputMode: 'text',
+      checkId: true,
       title: 'Listrik PLN',
       inputLabel: 'ID Pelanggan / No. Meter',
       recipientLabel: 'ID Pelanggan',
@@ -2905,7 +3012,7 @@ Rincian Pembayaran
         if (data.status) {
           state.balance = Number(data.data.balance) || 0;
           state.isAdmin = data.data.source === 'h2h'; // akun admin/owner: saldo diambil langsung dari H2H.id
-          refreshHomeUI();
+          loadRealHistory(function () { refreshHomeUI(); });
         }
       })
       .catch(function () { /* offline / worker belum di-deploy: biarkan saldo lokal */ });
